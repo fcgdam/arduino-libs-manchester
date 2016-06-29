@@ -1,9 +1,5 @@
 /*
-
-
 https://github.com/mchr3k/arduino-libs-manchester
-
-
 
 This code is based on the Atmel Corporation Manchester
 Coding Basics Application Note.
@@ -127,6 +123,10 @@ allowing us to transmit even with up to 100% in clock speed difference
   #include "WProgram.h"
   #include <pins_arduino.h>
 #endif
+
+// For Hamming code support
+typedef unsigned char byte;
+typedef unsigned char nibble;
 
 class Manchester
 {
