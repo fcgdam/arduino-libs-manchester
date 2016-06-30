@@ -34,12 +34,12 @@ static uint8_t rx_count = 0;
 static uint8_t rx_sync_count = 0;
 static uint8_t rx_mode = RX_MODE_IDLE;
 
-static uint16_t rx_manBits = 0; //the received manchester 32 bits
-static uint8_t rx_numMB = 0; //the number of received manchester bits
-static uint8_t rx_curByte = 0;
+static uint16_t rx_manBits = 0; // The received manchester 32 bits
+static uint8_t  rx_numMB = 0;   // The number of received manchester bits
+static uint8_t  rx_curByte = 0;
 
-static uint8_t rx_maxBytes = 2;
-static uint8_t rx_default_data[2];
+static uint8_t  rx_maxBytes = 2;
+static uint8_t  rx_default_data[2];
 static uint8_t* rx_data = rx_default_data;
 
 Manchester::Manchester() //constructor
@@ -230,6 +230,155 @@ uint16_t Manchester::encodeMessage(uint8_t id, uint8_t data)
   return m;
 }
 
+
+// EC Hamming functions
+uint8_t  Manchester::EC_encodeMessage( uint8_t numBytes, uint8_t *data, uint8_t *ecout)  // The ecout buffer should be at least 1/3 bigger than the data buffer
+{
+
+}
+
+
+uint8_t  Manchester::EC_decodeMessage( uint8_t numBytes, uint8_t *ecin, uint8_t *numBytes, uint_8 *datain )
+{
+
+}
+
+nibble   Manchester::DL_HammingCalculateParity128(byte value) 
+{
+        // Exclusive OR is associative and commutative, so order of operations and values does not matter.
+        nibble parity;
+
+        if ( ( value & 1 ) != 0 ) {
+                parity = 0x3;
+        } else {   
+                parity = 0x0;
+        }
+
+        if ( ( value & 2 ) != 0 ) {
+                parity ^= 0x5;
+        }
+
+        if ( ( value & 4 ) != 0 ) {
+                parity ^= 0x6;
+        }
+
+        if ( ( value & 8 ) != 0 ) {
+                parity ^= 0x7;
+        }
+
+        if ( ( value & 16 ) != 0 ) {
+                parity ^= 0x9;
+        }
+
+        if ( ( value & 32 ) != 0 ) {
+                parity ^= 0xA;
+        }
+
+        if ( ( value & 64 ) != 0 ) {
+                parity ^= 0xB;
+        }
+
+        if ( ( value & 128 ) != 0 ) {
+                parity ^= 0xC;
+        }
+
+        return parity;
+}
+
+byte    Manchester::DL_HammingCalculateParity2416(byte first, byte second)
+{
+	return (DL_HammingCalculateParity128(second) << 4) | DL_HammingCalculateParity128(first);
+}
+
+// Give a pointer to a received byte,
+// and given a nibble difference in parity (parity ^ calculated parity)
+// this will correct the received byte value if possible.
+// It returns the number of bits corrected:
+// 0 means no errors
+// 1 means one corrected error
+// 3 means corrections not possible
+static byte Manchester::DL_HammingCorrect128Syndrome(byte* value, byte syndrome)
+{
+        // Using only the lower nibble (& 0x0F), look up the bit
+        // to correct in a table
+        byte correction = _hammingCorrect128Syndrome[syndrome & 0x0F];
+
+        if (correction != NO_ERROR)
+        {
+                if (correction == UNCORRECTABLE || value == null)
+                {
+                        return 3; // Non-recoverable error
+                }
+                else
+                {
+                        if ( correction != ERROR_IN_PARITY)
+                        {
+                                *value ^= correction;
+                        }
+
+                        return 1; // 1-bit recoverable error;
+                }
+        }
+
+        return 0; // No errors
+}
+
+
+// Given a pointer to a received byte and the received parity (as a lower nibble),
+// this calculates what the parity should be and fixes the recevied value if needed.
+// It returns the number of bits corrected:
+// 0 means no errors
+// 1 means one corrected error
+// 3 means corrections not possible
+byte    Manchester::DL_HammingCorrect128(byte* value, nibble parity)
+{
+        byte syndrome;
+
+        if (value == null)
+        {
+                return 3; // Non-recoverable error
+        }
+
+        syndrome = DL_HammingCalculateParity128(*value) ^ parity;
+
+        if (syndrome != 0)
+        {
+                return DL_HammingCorrect128Syndrome(value, syndrome);
+        }
+
+        return 0; // No errors
+}
+
+
+// Given a pointer to a first value and a pointer to a second value and
+// their combined given parity (lower nibble first parity, upper nibble second parity),
+// this calculates what the parity should be and fixes the values if needed.
+// It returns the number of bits corrected:
+// 0 means no errors
+// 1 means one corrected error
+// 2 means two corrected errors
+// 3 means corrections not possible
+byte    Manchester::DL_HammingCorrect2416(byte* first, byte* second, byte parity)
+{
+        byte syndrome;
+
+        if (first == null || second == null)
+        {
+                return 3; // Non-recoverable error
+        }
+
+        syndrome = DL_HammingCalculateParity2416(*first, *second) ^ parity;
+
+        if (syndrome != 0)
+        {
+                return DL_HammingCorrect128Syndrome(first, syndrome) + DL_HammingCorrect128Syndrome(second, syndrome >> 4);
+        }
+
+        return 0; // No errors
+}
+
+
+// --- --- ---
 void Manchester::beginReceiveArray(uint8_t maxBytes, uint8_t *data)
 {
   ::MANRX_BeginReceiveBytes(maxBytes, data);
@@ -457,9 +606,7 @@ void MANRX_SetRxPin(uint8_t pin)
   pinMode(RxPin, INPUT);
 }//end of set transmit pin
 
-void AddManBit(uint16_t *manBits, uint8_t *numMB,
-               uint8_t *curByte, uint8_t *data,
-               uint8_t bit)
+void AddManBit(uint16_t *manBits, uint8_t *numMB, uint8_t *curByte, uint8_t *data, uint8_t bit)
 {
   *manBits <<= 1;
   *manBits |= bit;

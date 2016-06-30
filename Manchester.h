@@ -124,9 +124,48 @@ allowing us to transmit even with up to 100% in clock speed difference
   #include <pins_arduino.h>
 #endif
 
-// For Hamming code support
+// For Hamming code support.  Original code from David Cook, robotroom.com
 typedef unsigned char byte;
 typedef unsigned char nibble;
+
+#ifndef null
+#define null ((void*) 0)
+#endif
+
+// For processors with a Harvard architecture where you want
+// to indicate the table should be in program space rather than RAM.
+// On other processors, just define __flash as blank.
+#ifndef __flash
+#define __flash
+#endif
+
+// If transmitting/writing only, you don't need to include this file.
+// If receiving/reading, then this provides the methods to correct bit errors.
+
+#define UNCORRECTABLE   0xFF
+#define ERROR_IN_PARITY 0xFE
+#define NO_ERROR        0x00
+
+// Private table. Faster and more compact than multiple if statements.
+static __flash byte _hammingCorrect128Syndrome[16] =
+{
+        NO_ERROR,               // 0
+        ERROR_IN_PARITY,        // 1
+        ERROR_IN_PARITY,        // 2
+        0x01,                   // 3
+        ERROR_IN_PARITY,        // 4
+        0x02,                   // 5
+        0x04,                   // 6
+        0x08,                   // 7
+        ERROR_IN_PARITY,        // 8
+        0x10,                   // 9
+        0x20,                   // 10
+        0x40,                   // 11
+        0x80,                   // 12
+        UNCORRECTABLE,          // 13
+        UNCORRECTABLE,          // 14
+        UNCORRECTABLE,          // 15
+};
 
 class Manchester
 {
@@ -142,25 +181,37 @@ class Manchester
     
     void transmit(uint16_t data); //transmit 16 bits of data
     void transmitArray(uint8_t numBytes, uint8_t *data); // transmit array of bytes
-    
-    uint8_t decodeMessage(uint16_t m, uint8_t &id, uint8_t &data); //decode 8 bit payload and 4 bit ID from the message, return 1 of checksum is correct, otherwise 0
+
+    // Higher level functions.
+    uint8_t  decodeMessage(uint16_t m, uint8_t &id, uint8_t &data); //decode 8 bit payload and 4 bit ID from the message, return 1 of checksum is correct, otherwise 0
     uint16_t encodeMessage(uint8_t id, uint8_t data); //encode 8 bit payload, 4 bit ID and 4 bit checksum into 16 bit
+
+    // Higher level functions with Hamming EC support
+    uint8_t  EC_encodeMessage( uint8_t numBytes, uint8_t *data, uint8_t *ecout);  // The ecout buffer should be at least 1/3 bigger than the data buffer
+    uint8_t  EC_decodeMessage( uint8_t numBytes, uint8_t *ecin, uint8_t *numBytes, uint_8 *datain );
     
     //wrappers for global functions
-    void beginReceive(void);
-    void beginReceiveArray(uint8_t maxBytes, uint8_t *data);
-    uint8_t receiveComplete(void);
+    void     beginReceive(void);
+    void     beginReceiveArray(uint8_t maxBytes, uint8_t *data);
+    uint8_t  receiveComplete(void);
     uint16_t getMessage(void);
-    void stopReceive(void);
-    uint8_t speedFactor;
+    void     stopReceive(void);
+    uint8_t  speedFactor;
     uint16_t delay1;
     uint16_t delay2;
     
   private:
-    void sendZero(void);
-    void sendOne(void);
-    uint8_t TxPin;
-    uint8_t applyWorkAround1Mhz;
+    void     sendZero(void);
+    void     sendOne(void);
+    uint8_t  TxPin;
+    uint8_t  applyWorkAround1Mhz;
+
+    nibble   DL_HammingCalculateParity128(byte value);
+    byte     DL_HammingCalculateParity2416(byte first, byte second);
+    byte     DL_HammingCorrect128(byte* value, nibble parity);
+    byte     DL_HammingCorrect2416(byte* first, byte* second, byte parity);
+    static   byte Manchester::DL_HammingCorrect128Syndrome(byte* value, byte syndrome);
+
 };//end of class Manchester
 
 // Cant really do this as a real C++ class, since we need to have
