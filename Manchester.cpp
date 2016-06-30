@@ -234,16 +234,62 @@ uint16_t Manchester::encodeMessage(uint8_t id, uint8_t data)
 // EC Hamming functions
 uint8_t  Manchester::EC_encodeMessage( uint8_t numBytes, uint8_t *data, uint8_t *ecout)  // The ecout buffer should be at least 1/3 bigger than the data buffer
 {
+  uint8_t i = 0;
+    
+  while ( i < (numBytes - 1) ) {
+	ecout[i]   = data[i];
+        ecout[i+1] = data[i+1];
+        ecout[i+2] = DL_HammingCalculateParity2416( data[i] , data[i+1] );
+        i += 2;
+  } 
+  
+  if ( (numBytes % 2 ) ) {  // If the input data is not even, than since we need two bytes for one parity byte we need to add a pad byte.
+	ecout[i]   = data[i];
+        ecout[i+1] = 0x55 ;  // Pad byte. Can be anything. 
+        ecout[i+2] = DL_HammingCalculateParity2416( data[i] , data[i+1] );        
+        i += 2;
+      
+  }
+  
+  return i;  // Returns the number of bytes
 
 }
 
 
-uint8_t  Manchester::EC_decodeMessage( uint8_t numBytes, uint8_t *ecin, uint8_t *numBytes, uint_8 *datain )
+uint8_t  Manchester::EC_decodeMessage( uint8_t numBytes, uint8_t *ecin, uint8_t *bytesOut, uint_8 *dataout )
 {
+  uint8_t i = 0, ecResult = NO_ERROR;  // We will all the message even with errors. At user level, the decision is taken to accept or not the data.
+  uint8_t tmpResult = 0;
+  uint8_t b1,b2;
+  
+  // The input buffer size should point to data that is multiples of two bytes plus parity.
+  if ( (numBytes % 3 ) != 0 ) return BUFFERL_NOT_VAL;
+  
+  while ( i < numBytes ) {
 
+      b1 = ecin[i];
+      b2 = ecin[i+1];
+      
+      tmpResult = DL_HammingCorrect2416( &b1, &b2, ecin[i+2]);
+      
+      if ( tmpResult ) {
+          // Will enter here only if we had an issue with the data.
+          if ( ecResult != UNCORRECTABLE ) 
+              ecResult = tmpResult;
+          
+      }
+      
+      dataout[i] = b1;    // Store the original, or the corrected or not corrected data.
+      dataout[i+1] = b2;
+      
+      i += 2;
+  }
+ 
+    
+  return ecResult;  
 }
 
-nibble   Manchester::DL_HammingCalculateParity128(byte value) 
+nibble   Manchester::DL_HammingCalculateParity128(byte value) // For 8 bits calculate a 4 bit parity, hence 128 posfix.
 {
         // Exclusive OR is associative and commutative, so order of operations and values does not matter.
         nibble parity;

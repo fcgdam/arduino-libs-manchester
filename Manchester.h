@@ -79,9 +79,6 @@ allowing us to transmit even with up to 100% in clock speed difference
 //                       and end the transimitting by three 0's
 
 #define     SYNC_BIT_VALUE      0
-//decoding not finished.
-//#define     SYNC_BIT_VALUE      0
-
 
 /*
 	Signal timing, we take sample every 8 clock ticks
@@ -125,8 +122,8 @@ allowing us to transmit even with up to 100% in clock speed difference
 #endif
 
 // For Hamming code support.  Original code from David Cook, robotroom.com
-typedef unsigned char byte;
-typedef unsigned char nibble;
+typedef unsigned uint8_t byte;
+typedef unsigned uint8_t nibble;
 
 #ifndef null
 #define null ((void*) 0)
@@ -139,12 +136,11 @@ typedef unsigned char nibble;
 #define __flash
 #endif
 
-// If transmitting/writing only, you don't need to include this file.
-// If receiving/reading, then this provides the methods to correct bit errors.
-
-#define UNCORRECTABLE   0xFF
-#define ERROR_IN_PARITY 0xFE
-#define NO_ERROR        0x00
+// Hamming EC decoding functions status output definition
+#define UNCORRECTABLE   0xFF    // Received Message has an uncorrectable error
+#define ERROR_IN_PARITY 0xFE    // Received Message has an error but it was correctable
+#define BUFFERL_NOT_VAL 0xFD    // The input buffer for EC check should have a valid size of multiples of two bytes + parity byte.
+#define NO_ERROR        0x00    // No error detected
 
 // Private table. Faster and more compact than multiple if statements.
 static __flash byte _hammingCorrect128Syndrome[16] =
@@ -188,7 +184,7 @@ class Manchester
 
     // Higher level functions with Hamming EC support
     uint8_t  EC_encodeMessage( uint8_t numBytes, uint8_t *data, uint8_t *ecout);  // The ecout buffer should be at least 1/3 bigger than the data buffer
-    uint8_t  EC_decodeMessage( uint8_t numBytes, uint8_t *ecin, uint8_t *numBytes, uint_8 *datain );
+    uint8_t  EC_decodeMessage( uint8_t numBytes, uint8_t *ecin, uint8_t *bytesOut, uint_8 *dataout );
     
     //wrappers for global functions
     void     beginReceive(void);
