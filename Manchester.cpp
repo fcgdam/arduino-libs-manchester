@@ -256,7 +256,7 @@ uint8_t  Manchester::EC_encodeMessage( uint8_t numBytes, uint8_t *data, uint8_t 
 }
 
 
-uint8_t  Manchester::EC_decodeMessage( uint8_t numBytes, uint8_t *ecin, uint8_t *bytesOut, uint_8 *dataout )
+uint8_t  Manchester::EC_decodeMessage( uint8_t numBytes, uint8_t *ecin, uint8_t *bytesOut, uint8_t *dataout )
 {
   uint8_t i = 0, ecResult = NO_ERROR;  // We will all the message even with errors. At user level, the decision is taken to accept or not the data.
   uint8_t tmpResult = 0;
@@ -289,10 +289,10 @@ uint8_t  Manchester::EC_decodeMessage( uint8_t numBytes, uint8_t *ecin, uint8_t 
   return ecResult;  
 }
 
-nibble   Manchester::DL_HammingCalculateParity128(byte value) // For 8 bits calculate a 4 bit parity, hence 128 posfix.
+uint8_t   Manchester::DL_HammingCalculateParity128(uint8_t value) // For 8 bits calculate a 4 bit parity, hence 128 posfix.
 {
         // Exclusive OR is associative and commutative, so order of operations and values does not matter.
-        nibble parity;
+        uint8_t parity;
 
         if ( ( value & 1 ) != 0 ) {
                 parity = 0x3;
@@ -331,7 +331,7 @@ nibble   Manchester::DL_HammingCalculateParity128(byte value) // For 8 bits calc
         return parity;
 }
 
-byte    Manchester::DL_HammingCalculateParity2416(byte first, byte second)
+uint8_t    Manchester::DL_HammingCalculateParity2416(uint8_t first, uint8_t second)
 {
 	return (DL_HammingCalculateParity128(second) << 4) | DL_HammingCalculateParity128(first);
 }
@@ -343,11 +343,11 @@ byte    Manchester::DL_HammingCalculateParity2416(byte first, byte second)
 // 0 means no errors
 // 1 means one corrected error
 // 3 means corrections not possible
-static byte Manchester::DL_HammingCorrect128Syndrome(byte* value, byte syndrome)
+static uint8_t DL_HammingCorrect128Syndrome(uint8_t* value, uint8_t syndrome)
 {
         // Using only the lower nibble (& 0x0F), look up the bit
         // to correct in a table
-        byte correction = _hammingCorrect128Syndrome[syndrome & 0x0F];
+        uint8_t correction = _hammingCorrect128Syndrome[syndrome & 0x0F];
 
         if (correction != NO_ERROR)
         {
@@ -376,9 +376,9 @@ static byte Manchester::DL_HammingCorrect128Syndrome(byte* value, byte syndrome)
 // 0 means no errors
 // 1 means one corrected error
 // 3 means corrections not possible
-byte    Manchester::DL_HammingCorrect128(byte* value, nibble parity)
+uint8_t    Manchester::DL_HammingCorrect128(uint8_t* value, uint8_t parity)
 {
-        byte syndrome;
+        uint8_t syndrome;
 
         if (value == null)
         {
@@ -404,9 +404,9 @@ byte    Manchester::DL_HammingCorrect128(byte* value, nibble parity)
 // 1 means one corrected error
 // 2 means two corrected errors
 // 3 means corrections not possible
-byte    Manchester::DL_HammingCorrect2416(byte* first, byte* second, byte parity)
+uint8_t    Manchester::DL_HammingCorrect2416(uint8_t* first, uint8_t* second, uint8_t parity)
 {
-        byte syndrome;
+        uint8_t syndrome;
 
         if (first == null || second == null)
         {

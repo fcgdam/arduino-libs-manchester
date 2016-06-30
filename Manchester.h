@@ -121,10 +121,6 @@ allowing us to transmit even with up to 100% in clock speed difference
   #include <pins_arduino.h>
 #endif
 
-// For Hamming code support.  Original code from David Cook, robotroom.com
-typedef unsigned uint8_t byte;
-typedef unsigned uint8_t nibble;
-
 #ifndef null
 #define null ((void*) 0)
 #endif
@@ -184,7 +180,7 @@ class Manchester
 
     // Higher level functions with Hamming EC support
     uint8_t  EC_encodeMessage( uint8_t numBytes, uint8_t *data, uint8_t *ecout);  // The ecout buffer should be at least 1/3 bigger than the data buffer
-    uint8_t  EC_decodeMessage( uint8_t numBytes, uint8_t *ecin, uint8_t *bytesOut, uint_8 *dataout );
+    uint8_t  EC_decodeMessage( uint8_t numBytes, uint8_t *ecin, uint8_t *bytesOut, uint8_t *dataout );
     
     //wrappers for global functions
     void     beginReceive(void);
@@ -202,11 +198,11 @@ class Manchester
     uint8_t  TxPin;
     uint8_t  applyWorkAround1Mhz;
 
-    nibble   DL_HammingCalculateParity128(byte value);
-    byte     DL_HammingCalculateParity2416(byte first, byte second);
-    byte     DL_HammingCorrect128(byte* value, nibble parity);
-    byte     DL_HammingCorrect2416(byte* first, byte* second, byte parity);
-    static   byte Manchester::DL_HammingCorrect128Syndrome(byte* value, byte syndrome);
+    uint8_t  DL_HammingCalculateParity128(uint8_t value);
+    uint8_t  DL_HammingCalculateParity2416(uint8_t first, uint8_t second);
+    uint8_t  DL_HammingCorrect128(uint8_t* value, uint8_t parity);
+    uint8_t  DL_HammingCorrect2416(uint8_t* first, uint8_t* second, uint8_t parity);
+    static   uint8_t DL_HammingCorrect128Syndrome(uint8_t* value, uint8_t syndrome);
 
 };//end of class Manchester
 
