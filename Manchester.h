@@ -202,7 +202,7 @@ class Manchester
     uint8_t  DL_HammingCalculateParity2416(uint8_t first, uint8_t second);
     uint8_t  DL_HammingCorrect128(uint8_t* value, uint8_t parity);
     uint8_t  DL_HammingCorrect2416(uint8_t* first, uint8_t* second, uint8_t parity);
-    static   uint8_t DL_HammingCorrect128Syndrome(uint8_t* value, uint8_t syndrome);
+    uint8_t  DL_HammingCorrect128Syndrome(uint8_t* value, uint8_t syndrome);
 
 };//end of class Manchester
 
