@@ -51,14 +51,14 @@ Manchester::Manchester() //constructor
 void Manchester::setTxPin(uint8_t pin)
 {
   TxPin = pin; // user sets the digital pin as output
-  pinMode(TxPin, OUTPUT); 
+  pinMode(TxPin, OUTPUT);
 }
 
 
 void Manchester::setRxPin(uint8_t pin)
 {
   ::RxPin = pin; // user sets the digital pin as output
-  pinMode(::RxPin, INPUT); 
+  pinMode(::RxPin, INPUT);
 }
 
 void Manchester::workAround1MhzTinyCore(uint8_t a)
@@ -71,20 +71,20 @@ void Manchester::setupTransmit(uint8_t pin, uint8_t SF)
   setTxPin(pin);
   speedFactor = SF;
   //we don't use exact calculation of passed time spent outside of transmitter
-  //because of high ovehead associated with it, instead we use this 
+  //because of high ovehead associated with it, instead we use this
   //emprirically determined values to compensate for the time loss
-  
+
   #if F_CPU == 1000000UL
     uint16_t compensationFactor = 88; //must be divisible by 8 for workaround
   #elif F_CPU == 8000000UL
-    uint16_t compensationFactor = 12; 
+    uint16_t compensationFactor = 12;
   #else //16000000Mhz
-    uint16_t compensationFactor = 4; 
-  #endif  
+    uint16_t compensationFactor = 4;
+  #endif
 
   delay1 = (HALF_BIT_INTERVAL >> speedFactor) - compensationFactor;
   delay2 = (HALF_BIT_INTERVAL >> speedFactor) - 2;
-  
+
   #if F_CPU == 1000000UL
     delay2 -= 22; //22+2 = 24 is divisible by 8
     if (applyWorkAround1Mhz) { //definition of micro delay is broken for 1MHz speed in tiny cores as of now (May 2013)
@@ -93,7 +93,7 @@ void Manchester::setupTransmit(uint8_t pin, uint8_t SF)
       delay1 >>= 3;
       delay2 >>= 3;
     }
-  #endif  
+  #endif
 }
 
 
@@ -150,7 +150,7 @@ void Manchester::transmitArray(uint8_t numBytes, uint8_t *data)
   }
   sendOne(); //start data pulse
 #endif
- 
+
   // Send the user data
   for (uint8_t i = 0; i < numBytes; i++)
   {
@@ -203,11 +203,11 @@ void Manchester::sendOne(void)
 
 /*
     format of the message including checksum and ID
-    
+
     [0][1][2][3][4][5][6][7][8][9][a][b][c][d][e][f]
-    [    ID    ][ checksum ][         data         ]      
+    [    ID    ][ checksum ][         data         ]
                   checksum = ID xor data[7:4] xor data[3:0] xor 0b0011
-                  
+
 */
 
 //decode 8 bit payload and 4 bit ID from the message, return true if checksum is correct, otherwise false
@@ -234,60 +234,56 @@ uint16_t Manchester::encodeMessage(uint8_t id, uint8_t data)
 // EC Hamming functions
 uint8_t  Manchester::EC_encodeMessage( uint8_t numBytes, uint8_t *data, uint8_t *ecout)  // The ecout buffer should be at least 1/3 bigger than the data buffer
 {
-  uint8_t i = 0, j = 0;
-    
-  while ( i < (numBytes - 1) ) {
-	ecout[j++] = data[i];
-        ecout[j++] = data[i+1];
-        ecout[j++] = DL_HammingCalculateParity2416( data[i] , data[i+1] );
-        i += 2;
-  } 
-  
-  if ( (numBytes % 2 ) ) {  // If the input data is not even, than since we need two bytes for one parity byte we need to add a pad byte.
-	ecout[j++]   = data[i];
-        ecout[j++] = 0x55 ;  // Pad byte. Can be anything. 
-        ecout[j++] = DL_HammingCalculateParity2416( data[i] , data[i+1] );        
-        i += 2;
-      
+  uint8_t i = 0, j = 0, tpls = 0, b1, b2;
+  uint8_t nb = numBytes / 2;  // Number of byte tuples
+
+  while ( tpls < nb ) {
+      b1 = ecout[j++] = data[i++];
+      b2 = ecout[j++] = data[i++];
+      ecout[j++] = DL_HammingCalculateParity2416( b1 , b2 );
+      tpls++;
   }
-  
+
+  if ( (numBytes % 2 ) ) {  // If the input data is not even, than since we need two bytes for one parity byte we need to add a pad byte.
+      b1 = ecout[j++] = data[i];
+      b2 = ecout[j++] = 0x55 ;  // Pad byte. Can be anything.
+      ecout[j++] = DL_HammingCalculateParity2416( b1 , b2 );
+  }
+
   return j;  // Returns the number of bytes
-
 }
-
 
 uint8_t  Manchester::EC_decodeMessage( uint8_t numBytes, uint8_t *ecin, uint8_t *bytesOut, uint8_t *dataout )
 {
   uint8_t i = 0, j = 0, ecResult = NO_ERROR;  // We will all the message even with errors. At user level, the decision is taken to accept or not the data.
   uint8_t tmpResult = 0;
   uint8_t b1,b2,pa;
-  
+
   // The input buffer size should point to data that is multiples of two bytes plus parity.
   if ( (numBytes % 3 ) != 0 ) return BUFFERL_NOT_VAL;
-  
+
   while ( i < numBytes ) {
 
       b1 = ecin[i++];  // First Byte
       b2 = ecin[i++];  // Second Byte
       pa = ecin[i++];  // Parity Byte
-      
+
       tmpResult = DL_HammingCorrect2416( &b1, &b2, pa);
-      
+
       if ( tmpResult ) {
           // Will enter here only if we had an issue with the data.
-          if ( ecResult != UNCORRECTABLE ) 
+          if ( ecResult != UNCORRECTABLE )
               ecResult = tmpResult;
-          
       }
-      
+
       dataout[j++] = b1;    // Store the original, or the corrected or not corrected data.
       dataout[j++] = b2;
-      
+
   }
- 
+
   *bytesOut = j;
-    
-  return ecResult;  
+
+  return ecResult;
 }
 
 uint8_t   Manchester::DL_HammingCalculateParity128(uint8_t value) // For 8 bits calculate a 4 bit parity, hence 128 posfix.
@@ -297,7 +293,7 @@ uint8_t   Manchester::DL_HammingCalculateParity128(uint8_t value) // For 8 bits 
 
         if ( ( value & 1 ) != 0 ) {
                 parity = 0x3;
-        } else {   
+        } else {
                 parity = 0x0;
         }
 
@@ -464,7 +460,7 @@ void MANRX_SetupReceive(uint8_t speedFactor)
   #if defined( __AVR_ATtiny25__ ) || defined( __AVR_ATtiny45__ ) || defined( __AVR_ATtiny85__ )
 
     /*
-    Timer 1 is used with a ATtiny85. 
+    Timer 1 is used with a ATtiny85.
     http://www.atmel.com/Images/Atmel-2586-AVR-8-bit-Microcontroller-ATtiny25-ATtiny45-ATtiny85_Datasheet.pdf page 88
     How to find the correct value: (OCRxA +1) = F_CPU / prescaler / 1953.125
     OCR1C is 8 bit register
@@ -472,20 +468,20 @@ void MANRX_SetupReceive(uint8_t speedFactor)
 
     #if F_CPU == 1000000UL
       TCCR1 = _BV(CTC1) | _BV(CS12); // 1/8 prescaler
-      OCR1C = (64 >> speedFactor) - 1; 
+      OCR1C = (64 >> speedFactor) - 1;
     #elif F_CPU == 8000000UL
       TCCR1 = _BV(CTC1) | _BV(CS12) | _BV(CS11) | _BV(CS10); // 1/64 prescaler
-      OCR1C = (64 >> speedFactor) - 1; 
+      OCR1C = (64 >> speedFactor) - 1;
     #elif F_CPU == 16000000UL
       TCCR1 = _BV(CTC1) | _BV(CS12) | _BV(CS11) | _BV(CS10); // 1/64 prescaler
-      OCR1C = (128 >> speedFactor) - 1; 
-    #elif F_CPU == 16500000UL     
+      OCR1C = (128 >> speedFactor) - 1;
+    #elif F_CPU == 16500000UL
       TCCR1 = _BV(CTC1) | _BV(CS12) | _BV(CS11) | _BV(CS10); // 1/64 prescaler
-      OCR1C = (132 >> speedFactor) - 1; 
+      OCR1C = (132 >> speedFactor) - 1;
     #else
     #error "Manchester library only supports 1mhz, 8mhz, 16mhz, 16.5Mhz clock speeds on ATtiny85 chip"
     #endif
-    
+
     OCR1A = 0; // Trigger interrupt when TCNT1 is reset to 0
     TIMSK |= _BV(OCIE1A); // Turn on interrupt
     TCNT1 = 0; // Set counter to 0
@@ -493,7 +489,7 @@ void MANRX_SetupReceive(uint8_t speedFactor)
   #elif defined( __AVR_ATtiny2313__ ) || defined( __AVR_ATtiny2313A__ ) || defined( __AVR_ATtiny4313__ )
 
     /*
-    Timer 1 is used with a ATtiny2313. 
+    Timer 1 is used with a ATtiny2313.
     http://www.atmel.com/Images/doc2543.pdf page 107
     How to find the correct value: (OCRxA +1) = F_CPU / prescaler / 1953.125
     OCR1A/B are 8 bit registers
@@ -502,14 +498,14 @@ void MANRX_SetupReceive(uint8_t speedFactor)
     #if F_CPU == 1000000UL
       TCCR1A = 0;
       TCCR1B = _BV(WGM12) | _BV(CS11); // reset counter on match, 1/8 prescaler
-      OCR1A = (64 >> speedFactor) - 1; 
+      OCR1A = (64 >> speedFactor) - 1;
     #elif F_CPU == 8000000UL
       TCCR1B = _BV(WGM12) | _BV(CS12) | _BV(CS11) | _BV(CS10); // 1/64 prescaler
-      OCR1A = (64 >> speedFactor) - 1; 
+      OCR1A = (64 >> speedFactor) - 1;
     #else
     #error "Manchester library only supports 1mhz, 8mhz clock speeds on ATtiny2313 chip"
     #endif
-    
+
     OCR1B = 0; // Trigger interrupt when TCNT1 is reset to 0
     TIMSK |= _BV(OCIE1B); // Turn on interrupt
     TCNT1 = 0; // Set counter to 0
@@ -517,7 +513,7 @@ void MANRX_SetupReceive(uint8_t speedFactor)
   #elif defined( __AVR_ATtiny24__ ) || defined( __AVR_ATtiny24A__ ) || defined( __AVR_ATtiny44__ ) || defined( __AVR_ATtiny44A__ ) || defined( __AVR_ATtiny84__ ) || defined( __AVR_ATtiny84A__ )
 
     /*
-    Timer 1 is used with a ATtiny84. 
+    Timer 1 is used with a ATtiny84.
     http://www.atmel.com/Images/doc8006.pdf page 111
     How to find the correct value: (OCRxA +1) = F_CPU / prescaler / 1953.125
     OCR1A is 8 bit register
@@ -525,40 +521,40 @@ void MANRX_SetupReceive(uint8_t speedFactor)
 
     #if F_CPU == 1000000UL
       TCCR1B = _BV(WGM12) | _BV(CS11); // 1/8 prescaler
-      OCR1A = (64 >> speedFactor) - 1; 
+      OCR1A = (64 >> speedFactor) - 1;
     #elif F_CPU == 8000000UL
       TCCR1B = _BV(WGM12) | _BV(CS11) | _BV(CS10); // 1/64 prescaler
-      OCR1A = (64 >> speedFactor) - 1; 
+      OCR1A = (64 >> speedFactor) - 1;
     #elif F_CPU == 16000000UL
       TCCR1B = _BV(WGM12) | _BV(CS11) | _BV(CS10); // 1/64 prescaler
-      OCR1A = (128 >> speedFactor) - 1; 
+      OCR1A = (128 >> speedFactor) - 1;
     #else
     #error "Manchester library only supports 1mhz, 8mhz, 16mhz on ATtiny84"
     #endif
-    
+
     TIMSK1 |= _BV(OCIE1A); // Turn on interrupt
     TCNT1 = 0; // Set counter to 0
 
   #elif defined(__AVR_ATmega32U4__)
 
     /*
-    Timer 3 is used with a ATMega32U4. 
+    Timer 3 is used with a ATMega32U4.
     http://www.atmel.com/Images/doc7766.pdf page 133
     How to find the correct value: (OCRxA +1) = F_CPU / prescaler / 1953.125
     OCR3A is 16 bit register
     */
-    
+
     TCCR3B = _BV(WGM32) | _BV(CS31); // 1/8 prescaler
     #if F_CPU == 1000000UL
-      OCR3A = (64 >> speedFactor) - 1; 
+      OCR3A = (64 >> speedFactor) - 1;
     #elif F_CPU == 8000000UL
-      OCR3A = (512 >> speedFactor) - 1; 
+      OCR3A = (512 >> speedFactor) - 1;
     #elif F_CPU == 16000000UL
-      OCR3A = (1024 >> speedFactor) - 1; 
+      OCR3A = (1024 >> speedFactor) - 1;
     #else
     #error "Manchester library only supports 1mhz, 8mhz, 16mhz on ATMega32U4"
     #endif
-    
+
     TCCR3A = 0; // reset counter on match
     TIFR3 = _BV(OCF3A); // clear interrupt flag
     TIMSK3 = _BV(OCIE3A); // Turn on interrupt
@@ -566,8 +562,8 @@ void MANRX_SetupReceive(uint8_t speedFactor)
 
   #elif defined(__AVR_ATmega8__)
 
-    /* 
-    Timer/counter 1 is used with ATmega8. 
+    /*
+    Timer/counter 1 is used with ATmega8.
     http://www.atmel.com/Images/Atmel-2486-8-bit-AVR-microcontroller-ATmega8_L_datasheet.pdf page 99
     How to find the correct value: (OCRxA +1) = F_CPU / prescaler / 1953.125
     OCR1A is 16 bit register
@@ -576,11 +572,11 @@ void MANRX_SetupReceive(uint8_t speedFactor)
     TCCR1A = _BV(WGM12); // reset counter on match
     TCCR1B =  _BV(CS11); // 1/8 prescaler
     #if F_CPU == 1000000UL
-      OCR1A = (64 >> speedFactor) - 1; 
+      OCR1A = (64 >> speedFactor) - 1;
     #elif F_CPU == 8000000UL
-      OCR1A = (512 >> speedFactor) - 1; 
+      OCR1A = (512 >> speedFactor) - 1;
     #elif F_CPU == 16000000UL
-      OCR1A = (1024 >> speedFactor) - 1; 
+      OCR1A = (1024 >> speedFactor) - 1;
     #else
     #error "Manchester library only supports 1Mhz, 8mhz, 16mhz on ATMega8"
     #endif
@@ -604,10 +600,10 @@ void MANRX_SetupReceive(uint8_t speedFactor)
       OCR2A = (64 >> speedFactor) - 1;
     #elif F_CPU == 8000000UL
       TCCR2B = _BV(CS21) | _BV(CS20); // 1/32 prescaler
-      OCR2A = (128 >> speedFactor) - 1; 
+      OCR2A = (128 >> speedFactor) - 1;
     #elif F_CPU == 16000000UL
       TCCR2B = _BV(CS22); // 1/64 prescaler
-      OCR2A = (128 >> speedFactor) - 1; 
+      OCR2A = (128 >> speedFactor) - 1;
     #else
     #error "Manchester library only supports 8mhz, 16mhz on ATMega328"
     #endif
@@ -681,7 +677,7 @@ void AddManBit(uint16_t *manBits, uint8_t *numMB, uint8_t *curByte, uint8_t *dat
     {
       rx_maxBytes = data[0];
     }
-    
+
     *numMB = 0;
   }
 }
@@ -704,10 +700,10 @@ ISR(TIMER2_COMPA_vect)
   {
     // Increment counter
     rx_count += 8;
-    
+
     // Check for value change
     //rx_sample = digitalRead(RxPin);
-    // caoxp@github, 
+    // caoxp@github,
     // add filter.
     // sample twice, only the same means a change.
     static uint8_t rx_sample_0=0;
@@ -722,7 +718,7 @@ ISR(TIMER2_COMPA_vect)
 
     //check sample transition
     uint8_t transition = (rx_sample != rx_last_sample);
-  
+
     if (rx_mode == RX_MODE_PRE)
     {
       // Wait for first transition to HIGH
@@ -755,7 +751,7 @@ ISR(TIMER2_COMPA_vect)
         else
         {
           rx_sync_count++;
-          
+
           if((rx_last_sample == 0) &&
              (rx_sync_count >= (SYNC_PULSE_MIN * 2) ) &&
              (rx_count >= MinLongCount))
@@ -808,7 +804,7 @@ ISR(TIMER2_COMPA_vect)
         }
       }
     }
-    
+
     // Get ready for next loop
     rx_last_sample = rx_sample;
   }

@@ -21,8 +21,8 @@
 
 */
 
-#define TX_PIN  4  //pin where your transmitter is connected
-#define LED_PIN 13 //pin for blinking LED
+#define TX_PIN  1  //pin where your transmitter is connected
+#define LED_PIN 2 //pin for blinking LED
 
 uint8_t moo = 1; //last led status
 uint8_t data[20] = {11, '1','2', '3', '4', '5', '6', '7', '8', '9','1','2','3','4','5','6','7','8','9'};
